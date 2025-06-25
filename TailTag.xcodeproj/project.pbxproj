@@ -11,7 +11,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		B190D3502E0BA64600EB711C /* Exceptions for "TailTag" folder in "TailTag" target */ = {
+		B18ED8AB2E0BB80600A87088 /* Exceptions for "TailTag" folder in "TailTag" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -24,7 +24,7 @@
 		B190D2EA2E0B97A600EB711C /* TailTag */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				B190D3502E0BA64600EB711C /* Exceptions for "TailTag" folder in "TailTag" target */,
+				B18ED8AB2E0BB80600A87088 /* Exceptions for "TailTag" folder in "TailTag" target */,
 			);
 			path = TailTag;
 			sourceTree = "<group>";

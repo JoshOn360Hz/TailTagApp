@@ -1,4 +1,4 @@
-mport SwiftUI
+import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var appSettings: AppSettings
@@ -20,8 +20,4 @@ struct SettingsView: View {
     }
 }
 
-#Preview {
-    SettingsView()
-        .environmentObject(AppSettings())
-        .environmentObject(SpottingStore())
-}
+
