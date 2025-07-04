@@ -74,4 +74,69 @@ class SpottingStore: ObservableObject {
         entries.removeAll { $0.id == spotting.id }
         saveEntries()
     }
+    
+    // MARK: - Sorting Methods
+    
+    func sortedEntries(by sortOption: SortOption) -> [SpottingEntry] {
+        switch sortOption {
+        case .dateNewest:
+            return entries.sorted { $0.timestamp > $1.timestamp }
+        case .dateOldest:
+            return entries.sorted { $0.timestamp < $1.timestamp }
+        case .aircraftTypeAZ:
+            return entries.sorted { 
+                let type1 = $0.aircraftType?.lowercased() ?? ""
+                let type2 = $1.aircraftType?.lowercased() ?? ""
+                return type1 < type2
+            }
+        case .aircraftTypeZA:
+            return entries.sorted { 
+                let type1 = $0.aircraftType?.lowercased() ?? ""
+                let type2 = $1.aircraftType?.lowercased() ?? ""
+                return type1 > type2
+            }
+        case .airlineAZ:
+            return entries.sorted { $0.airline.lowercased() < $1.airline.lowercased() }
+        case .airlineZA:
+            return entries.sorted { $0.airline.lowercased() > $1.airline.lowercased() }
+        case .registrationAZ:
+            return entries.sorted { $0.registration.lowercased() < $1.registration.lowercased() }
+        case .registrationZA:
+            return entries.sorted { $0.registration.lowercased() > $1.registration.lowercased() }
+        }
+    }
+    
+    func filteredAndSortedEntries(searchText: String, sortOption: SortOption) -> [SpottingEntry] {
+        let filtered = filteredEntries(searchText: searchText)
+        return sortEntries(filtered, by: sortOption)
+    }
+    
+    private func sortEntries(_ entries: [SpottingEntry], by sortOption: SortOption) -> [SpottingEntry] {
+        switch sortOption {
+        case .dateNewest:
+            return entries.sorted { $0.timestamp > $1.timestamp }
+        case .dateOldest:
+            return entries.sorted { $0.timestamp < $1.timestamp }
+        case .aircraftTypeAZ:
+            return entries.sorted { 
+                let type1 = $0.aircraftType?.lowercased() ?? ""
+                let type2 = $1.aircraftType?.lowercased() ?? ""
+                return type1 < type2
+            }
+        case .aircraftTypeZA:
+            return entries.sorted { 
+                let type1 = $0.aircraftType?.lowercased() ?? ""
+                let type2 = $1.aircraftType?.lowercased() ?? ""
+                return type1 > type2
+            }
+        case .airlineAZ:
+            return entries.sorted { $0.airline.lowercased() < $1.airline.lowercased() }
+        case .airlineZA:
+            return entries.sorted { $0.airline.lowercased() > $1.airline.lowercased() }
+        case .registrationAZ:
+            return entries.sorted { $0.registration.lowercased() < $1.registration.lowercased() }
+        case .registrationZA:
+            return entries.sorted { $0.registration.lowercased() > $1.registration.lowercased() }
+        }
+    }
 }

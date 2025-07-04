@@ -21,10 +21,17 @@ class AppSettings: ObservableObject {
         }
     }
     
+    @Published var hasCompletedOnboarding: Bool = false {
+        didSet {
+            saveOnboardingStatus()
+        }
+    }
+    
     private let userDefaults = UserDefaults.standard
     private let accentColorKey = "AccentColor"
     private let colorSchemeKey = "ColorScheme"
     private let appIconKey = "AppIcon"
+    private let onboardingKey = "HasCompletedOnboarding"
     
     init() {
         loadSettings()
@@ -48,6 +55,10 @@ class AppSettings: ObservableObject {
         userDefaults.set(currentAppIcon, forKey: appIconKey)
     }
     
+    private func saveOnboardingStatus() {
+        userDefaults.set(hasCompletedOnboarding, forKey: onboardingKey)
+    }
+    
     private func loadSettings() {
         if let colorId = userDefaults.string(forKey: accentColorKey),
            let colorOption = AccentColorOption.defaultOptions.first(where: { $0.id == colorId }) {
@@ -65,6 +76,8 @@ class AppSettings: ObservableObject {
         }
         
         self.currentAppIcon = userDefaults.string(forKey: appIconKey)
+        
+        self.hasCompletedOnboarding = userDefaults.bool(forKey: onboardingKey)
     }
 }
 

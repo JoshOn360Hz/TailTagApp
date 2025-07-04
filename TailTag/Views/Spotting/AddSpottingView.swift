@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import Vision
 
 struct AddSpottingView: View {
     @EnvironmentObject var spottingStore: SpottingStore
@@ -14,6 +15,11 @@ struct AddSpottingView: View {
     @State private var aircraftType = ""
     @State private var notes = ""
     @State private var timestamp = Date()
+    @State private var isDateFromPhoto = false
+    @State private var isRegistrationFromPhoto = false
+    @State private var isAirlineFromPhoto = false
+    
+    private let textDetector = AircraftTextDetector()
     
     private var canSave: Bool {
         !registration.isEmpty && !airline.isEmpty && !location.isEmpty
@@ -43,16 +49,61 @@ struct AddSpottingView: View {
                         Task {
                             if let data = try? await newValue?.loadTransferable(type: Data.self) {
                                 photoData = data
+                                
+                                // Extract date from photo metadata
+                                if let photoDate = PhotoMetadataExtractor.extractDateFromPhoto(data) {
+                                    timestamp = photoDate
+                                    isDateFromPhoto = true
+                                } else {
+                                    isDateFromPhoto = false
+                                }
+                                
+                                // Detect aircraft information from photo
+                                if let uiImage = UIImage(data: data) {
+                                    detectAircraftInfoFromImage(uiImage)
+                                }
                             }
                         }
                     }
                 }
                 
                 Section("Aircraft Details") {
-                    TextField("Registration ", text: $registration)
-                        .textInputAutocapitalization(.characters)
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("Registration ", text: $registration)
+                            .textInputAutocapitalization(.characters)
+                            .onChange(of: registration) { _, _ in
+                                isRegistrationFromPhoto = false
+                            }
+                        
+                        if isRegistrationFromPhoto {
+                            HStack {
+                                Image(systemName: "camera.fill")
+                                    .foregroundStyle(appSettings.accentColor)
+                                    .font(.caption)
+                                Text("Registration detected from photo")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     
-                    TextField("Airline", text: $airline)
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("Airline", text: $airline)
+                            .onChange(of: airline) { _, _ in
+                                isAirlineFromPhoto = false
+                            }
+                        
+                        if isAirlineFromPhoto {
+                            HStack {
+                                Image(systemName: "camera.fill")
+                                    .foregroundStyle(appSettings.accentColor)
+                                    .font(.caption)
+                                Text("Airline detected from photo")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     
                     TextField("Location (e.g., EGLL or Heathrow)", text: $location)
                         .textInputAutocapitalization(.characters)
@@ -67,7 +118,23 @@ struct AddSpottingView: View {
                 }
                 
                 Section("Date & Time") {
-                    DatePicker("Date Spotted", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
+                    VStack(alignment: .leading, spacing: 8) {
+                        DatePicker("Date Spotted", selection: $timestamp, displayedComponents: [.date, .hourAndMinute])
+                            .onChange(of: timestamp) { _, _ in
+                                isDateFromPhoto = false
+                            }
+                        
+                        if isDateFromPhoto {
+                            HStack {
+                                Image(systemName: "camera.fill")
+                                    .foregroundStyle(appSettings.accentColor)
+                                    .font(.caption)
+                                Text("Date automatically set from photo")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                 }
             }
             .navigationTitle("Add Aircraft")
@@ -103,6 +170,28 @@ struct AddSpottingView: View {
         
         spottingStore.addEntry(entry)
         dismiss()
+    }
+    
+    private func detectAircraftInfoFromImage(_ image: UIImage) {
+        textDetector.detectAircraftInfo(in: image) { result in
+            DispatchQueue.main.async {
+                // Auto-fill registration if detected and field is empty
+                if let detectedRegistration = result.registration,
+                   result.confidence > 0.6,
+                   self.registration.isEmpty {
+                    self.registration = detectedRegistration
+                    self.isRegistrationFromPhoto = true
+                }
+                
+                // Auto-fill airline if detected and field is empty
+                if let detectedAirline = result.airline,
+                   result.confidence > 0.6,
+                   self.airline.isEmpty {
+                    self.airline = detectedAirline
+                    self.isAirlineFromPhoto = true
+                }
+            }
+        }
     }
 }
 

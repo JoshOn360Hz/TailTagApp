@@ -7,7 +7,7 @@ struct AppSettingsView: View {
     
     var body: some View {
         Section("App") {
-            Link(destination: URL(string: "mailto:support@tailtag.app?subject=TailTag%20App%20Support")!) {
+            Link(destination: URL(string: "mailto:joshcumulus@proton.me?subject=TailTag%20App%20Support")!) {
                 HStack {
                     Image(systemName: "envelope")
                         .foregroundColor(appSettings.accentColor)
@@ -21,6 +21,18 @@ struct AppSettingsView: View {
                 }
             }
             
+            Button {
+                appSettings.hasCompletedOnboarding = false
+            } label: {
+                HStack {
+                    Image(systemName: "play.circle")
+                        .foregroundColor(appSettings.accentColor)
+                        .frame(width: 25)
+                    Text("Replay Onboarding")
+                        .foregroundColor(.primary)
+                }
+            }
+            
             Button(role: .destructive) {
                 showResetConfirmation = true
             } label: {
@@ -28,7 +40,7 @@ struct AppSettingsView: View {
                     Image(systemName: "arrow.clockwise")
                         .foregroundColor(.red)
                         .frame(width: 25)
-                    Text("Reset All Settings")
+                    Text("Reset App")
                 }
             }
             .alert("Reset All Settings", isPresented: $showResetConfirmation) {
@@ -46,6 +58,7 @@ struct AppSettingsView: View {
         appSettings.accentColor = .blue
         appSettings.colorScheme = nil
         appSettings.currentAppIcon = nil
+        appSettings.hasCompletedOnboarding = false
         
         spottingStore.clearAllEntries()
     }

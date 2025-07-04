@@ -5,6 +5,19 @@ struct ContentView: View {
     @StateObject private var appSettings = AppSettings()
     
     var body: some View {
+        Group {
+            if appSettings.hasCompletedOnboarding {
+                mainAppView
+            } else {
+                OnboardingView {
+                    appSettings.hasCompletedOnboarding = true
+                }
+                .environmentObject(appSettings)
+            }
+        }
+    }
+    
+    private var mainAppView: some View {
         TabView {
             RecentView()
                 .tabItem {
