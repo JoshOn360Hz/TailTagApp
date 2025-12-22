@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct EmptyStateView: View {
+    // ...existing code...
     @EnvironmentObject var appSettings: AppSettings
     
     var body: some View {
@@ -26,6 +27,7 @@ struct EmptyStateView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    // ...existing code...
     }
 }
 

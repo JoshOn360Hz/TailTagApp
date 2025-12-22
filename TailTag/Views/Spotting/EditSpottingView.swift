@@ -10,7 +10,7 @@ struct EditSpottingView: View {
     let spotting: SpottingEntry
     
     @State private var selectedPhoto: PhotosPickerItem?
-    @State private var photoData: Data
+    @State private var photoData: Data?
     @State private var registration: String
     @State private var airline: String
     @State private var location: String
@@ -26,7 +26,7 @@ struct EditSpottingView: View {
     
     init(spotting: SpottingEntry) {
         self.spotting = spotting
-        _photoData = State(initialValue: spotting.photo)
+        _photoData = State(wrappedValue: spotting.photo)
         _registration = State(initialValue: spotting.registration)
         _airline = State(initialValue: spotting.airline)
         _location = State(initialValue: spotting.location)
@@ -40,7 +40,7 @@ struct EditSpottingView: View {
             Form {
                 Section("Photo") {
                     HStack {
-                        if let uiImage = UIImage(data: photoData) {
+                        if let photoData = photoData, let uiImage = UIImage(data: photoData) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -197,23 +197,34 @@ struct EditSpottingView: View {
         }
         .navigationViewStyle(.stack)
         .onChange(of: selectedPhoto) { _, newPhoto in
-            Task {
-                if let newPhoto = newPhoto,
-                   let data = try? await newPhoto.loadTransferable(type: Data.self) {
-                    photoData = data
-                    
-                    // Extract date from photo metadata
-                    if let photoDate = PhotoMetadataExtractor.extractDateFromPhoto(data) {
-                        timestamp = photoDate
-                        isDateFromPhoto = true
+            Task { @MainActor in
+                guard let newPhoto = newPhoto else { return }
+                do {
+                    // loadTransferable may return optional Data
+                    if let data = try await newPhoto.loadTransferable(type: Data.self) {
+                        // Compress image before storing to prevent memory issues
+                        let compressedData = SpottingStore.compressImageData(data)
+                        photoData = compressedData
+
+                        // Extract date from photo metadata
+                        if let photoDate = PhotoMetadataExtractor.extractDateFromPhoto(data) {
+                            timestamp = photoDate
+                            isDateFromPhoto = true
+                        } else {
+                            isDateFromPhoto = false
+                        }
+
+                        // Detect aircraft information from photo using compressed version
+                        if let uiImage = UIImage(data: compressedData) {
+                            detectAircraftInfoFromImage(uiImage)
+                        }
                     } else {
+                        // No transferable data loaded
                         isDateFromPhoto = false
                     }
-                    
-                    // Detect aircraft information from photo
-                    if let uiImage = UIImage(data: data) {
-                        detectAircraftInfoFromImage(uiImage)
-                    }
+                } catch {
+                    // Handle any transfer errors gracefully
+                    isDateFromPhoto = false
                 }
             }
         }
@@ -234,6 +245,7 @@ struct EditSpottingView: View {
     }
     
     private func saveChanges() {
+        guard let photoData = photoData else { return }
         var updatedSpotting = spotting
         updatedSpotting.photo = photoData
         updatedSpotting.registration = registration.trimmingCharacters(in: .whitespacesAndNewlines)

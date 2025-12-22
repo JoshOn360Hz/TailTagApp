@@ -1,48 +1,186 @@
 import SwiftUI
 import Foundation
 import Combine
+import CoreData
 
+@MainActor
 class SpottingStore: ObservableObject {
     @Published var entries: [SpottingEntry] = []
     
+    private let persistenceController: PersistenceController
+    private let viewContext: NSManagedObjectContext
     private let userDefaults = UserDefaults.standard
-    private let entriesKey = "SpottingEntries"
+    private let migrationKey = "HasMigratedToCoreData"
+    private let oldEntriesKey = "SpottingEntries"
     
-    init() {
+    init(persistenceController: PersistenceController = .shared) {
+        self.persistenceController = persistenceController
+        self.viewContext = persistenceController.container.viewContext
+        
+        // Migrate from UserDefaults on first launch
+        migrateFromUserDefaultsIfNeeded()
+        
+        // Load entries from Core Data
         loadEntries()
     }
     
-    
-    private func saveEntries() {
-        if let encoded = try? JSONEncoder().encode(entries) {
-            userDefaults.set(encoded, forKey: entriesKey)
+    // MARK: - Migration from UserDefaults
+    private func migrateFromUserDefaultsIfNeeded() {
+        // Check if already migrated
+        guard !userDefaults.bool(forKey: migrationKey) else { return }
+        
+        // Try to load old data from UserDefaults
+        guard let data = userDefaults.data(forKey: oldEntriesKey),
+              let oldEntries = try? JSONDecoder().decode([SpottingEntry].self, from: data),
+              !oldEntries.isEmpty else {
+            // No data to migrate or already empty
+            userDefaults.set(true, forKey: migrationKey)
+            return
+        }
+        
+        print("Migrating \(oldEntries.count) entries from UserDefaults to Core Data...")
+        
+        // Migrate each entry to Core Data
+        for entry in oldEntries {
+            let entity = SpottingEntryEntity(context: viewContext)
+            entity.id = entry.id
+            entity.photo = SpottingStore.compressImageData(entry.photo)
+            entity.registration = entry.registration
+            entity.airline = entry.airline
+            entity.location = entry.location
+            entity.aircraftType = entry.aircraftType
+            entity.notes = entry.notes
+            entity.timestamp = entry.timestamp
+        }
+        
+        // Save to Core Data
+        do {
+            try viewContext.save()
+            // Mark migration as complete
+            userDefaults.set(true, forKey: migrationKey)
+            // Remove old data from UserDefaults
+            userDefaults.removeObject(forKey: oldEntriesKey)
+            print("Migration completed successfully!")
+        } catch {
+            print("Migration failed: \(error.localizedDescription)")
         }
     }
     
+    // Compress image data for storage optimization
+    static func compressImageData(_ data: Data, maxSizeKB: Int = 800) -> Data {
+        guard let image = UIImage(data: data) else { return data }
+        
+        // Start with higher quality and reduce if needed
+        var compression: CGFloat = 0.8
+        var imageData = image.jpegData(compressionQuality: compression)
+        let maxBytes = maxSizeKB * 1024
+        
+        // Reduce quality until under size limit
+        while let data = imageData, data.count > maxBytes && compression > 0.1 {
+            compression -= 0.1
+            imageData = image.jpegData(compressionQuality: compression)
+        }
+        
+        // If still too large, resize the image
+        if let data = imageData, data.count > maxBytes {
+            let scale = sqrt(Double(maxBytes) / Double(data.count))
+            let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            
+            UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+            let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            
+            imageData = resizedImage?.jpegData(compressionQuality: 0.7)
+        }
+        
+        return imageData ?? data
+    }
+    
+    // MARK: - Core Data Operations
     private func loadEntries() {
-        if let data = userDefaults.data(forKey: entriesKey),
-           let decoded = try? JSONDecoder().decode([SpottingEntry].self, from: data) {
-            self.entries = decoded
-        } else {
-            // Start with empty entries for fresh install
-            self.entries = []
+        let fetchRequest: NSFetchRequest<SpottingEntryEntity> = SpottingEntryEntity.fetchRequest()
+        fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \SpottingEntryEntity.timestamp, ascending: false)]
+        
+        do {
+            let entities = try viewContext.fetch(fetchRequest)
+            entries = entities.compactMap { entity in
+                guard let id = entity.id,
+                      let photo = entity.photo,
+                      let registration = entity.registration,
+                      let airline = entity.airline,
+                      let location = entity.location,
+                      let timestamp = entity.timestamp else {
+                    return nil
+                }
+                
+                return SpottingEntry(
+                    id: id,
+                    photo: photo,
+                    registration: registration,
+                    airline: airline,
+                    location: location,
+                    aircraftType: entity.aircraftType,
+                    notes: entity.notes,
+                    timestamp: timestamp
+                )
+            }
+        } catch {
+            print("Error loading entries from Core Data: \(error.localizedDescription)")
+            entries = []
         }
     }
     
+    private func saveContext() {
+        guard viewContext.hasChanges else { return }
+        
+        do {
+            try viewContext.save()
+            loadEntries() // Refresh entries array
+        } catch {
+            print("Error saving context: \(error.localizedDescription)")
+        }
+    }
     
+    // MARK: - CRUD Operations
     func addEntry(_ entry: SpottingEntry) {
-        entries.insert(entry, at: 0) // Add to beginning for "most recent" order
-        saveEntries()
+        let entity = SpottingEntryEntity(context: viewContext)
+        entity.id = entry.id
+        entity.photo = SpottingStore.compressImageData(entry.photo)
+        entity.registration = entry.registration
+        entity.airline = entry.airline
+        entity.location = entry.location
+        entity.aircraftType = entry.aircraftType
+        entity.notes = entry.notes
+        entity.timestamp = entry.timestamp
+        
+        saveContext()
     }
     
     func deleteEntry(_ entry: SpottingEntry) {
-        entries.removeAll { $0.id == entry.id }
-        saveEntries()
+        let fetchRequest: NSFetchRequest<SpottingEntryEntity> = SpottingEntryEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", entry.id as CVarArg)
+        
+        do {
+            let entities = try viewContext.fetch(fetchRequest)
+            entities.forEach { viewContext.delete($0) }
+            saveContext()
+        } catch {
+            print("Error deleting entry: \(error.localizedDescription)")
+        }
     }
     
     func clearAllEntries() {
-        entries.removeAll()
-        saveEntries()
+        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = SpottingEntryEntity.fetchRequest()
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        
+        do {
+            try viewContext.execute(deleteRequest)
+            try viewContext.save()
+            loadEntries()
+        } catch {
+            print("Error clearing entries: \(error.localizedDescription)")
+        }
     }
     
     
@@ -64,18 +202,30 @@ class SpottingStore: ObservableObject {
     
     
     func updateSpotting(_ updatedSpotting: SpottingEntry) {
-        if let index = entries.firstIndex(where: { $0.id == updatedSpotting.id }) {
-            entries[index] = updatedSpotting
-            saveEntries()
+        let fetchRequest: NSFetchRequest<SpottingEntryEntity> = SpottingEntryEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "id == %@", updatedSpotting.id as CVarArg)
+        
+        do {
+            let entities = try viewContext.fetch(fetchRequest)
+            if let entity = entities.first {
+                entity.photo = SpottingStore.compressImageData(updatedSpotting.photo)
+                entity.registration = updatedSpotting.registration
+                entity.airline = updatedSpotting.airline
+                entity.location = updatedSpotting.location
+                entity.aircraftType = updatedSpotting.aircraftType
+                entity.notes = updatedSpotting.notes
+                entity.timestamp = updatedSpotting.timestamp
+                saveContext()
+            }
+        } catch {
+            print("Error updating entry: \(error.localizedDescription)")
         }
     }
     
     func deleteSpotting(_ spotting: SpottingEntry) {
-        entries.removeAll { $0.id == spotting.id }
-        saveEntries()
+        deleteEntry(spotting)
     }
     
-    // MARK: - Sorting Methods
     
     func sortedEntries(by sortOption: SortOption) -> [SpottingEntry] {
         switch sortOption {

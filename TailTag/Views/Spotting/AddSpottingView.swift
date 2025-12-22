@@ -18,18 +18,18 @@ struct AddSpottingView: View {
     @State private var isDateFromPhoto = false
     @State private var isRegistrationFromPhoto = false
     @State private var isAirlineFromPhoto = false
+    @State private var isProcessingImage = false
     
     private let textDetector = AircraftTextDetector()
     
     private var canSave: Bool {
-        !registration.isEmpty && !airline.isEmpty && !location.isEmpty
+        photoData != nil && !registration.isEmpty && !airline.isEmpty && !location.isEmpty
     }
     
     var body: some View {
         NavigationView {
             Form {
                 Section {
-                    // Photo Picker
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
                         if let photoData = photoData, let uiImage = UIImage(data: photoData) {
                             Image(uiImage: uiImage)
@@ -46,11 +46,17 @@ struct AddSpottingView: View {
                         }
                     }
                     .onChange(of: selectedPhoto) { _, newValue in
-                        Task {
+                        Task { @MainActor in
+                            guard !isProcessingImage else { return }
+                            isProcessingImage = true
+                            
+                            defer { isProcessingImage = false }
+                            
                             if let data = try? await newValue?.loadTransferable(type: Data.self) {
-                                photoData = data
+                                // Compress image data immediately to prevent memory issues
+                                let compressedData = SpottingStore.compressImageData(data)
+                                photoData = compressedData
                                 
-                                // Extract date from photo metadata
                                 if let photoDate = PhotoMetadataExtractor.extractDateFromPhoto(data) {
                                     timestamp = photoDate
                                     isDateFromPhoto = true
@@ -58,9 +64,9 @@ struct AddSpottingView: View {
                                     isDateFromPhoto = false
                                 }
                                 
-                                // Detect aircraft information from photo
-                                if let uiImage = UIImage(data: data) {
-                                    detectAircraftInfoFromImage(uiImage)
+                                // Use compressed data for detection to reduce memory usage
+                                if let uiImage = UIImage(data: compressedData) {
+                                    await detectAircraftInfoFromImage(uiImage)
                                 }
                             }
                         }
@@ -158,8 +164,13 @@ struct AddSpottingView: View {
     }
     
     private func saveSpotting() {
+        guard let photoData = photoData else {
+            print("Error: Cannot save entry without photo")
+            return
+        }
+        
         let entry = SpottingEntry(
-            photo: photoData ?? Data(),
+            photo: photoData,
             registration: registration.trimmingCharacters(in: .whitespacesAndNewlines),
             airline: airline.trimmingCharacters(in: .whitespacesAndNewlines),
             location: location.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -168,30 +179,61 @@ struct AddSpottingView: View {
             timestamp: timestamp
         )
         
-        spottingStore.addEntry(entry)
-        dismiss()
+        Task { @MainActor in
+            spottingStore.addEntry(entry)
+            dismiss()
+        }
     }
     
-    private func detectAircraftInfoFromImage(_ image: UIImage) {
-        textDetector.detectAircraftInfo(in: image) { result in
-            DispatchQueue.main.async {
-                // Auto-fill registration if detected and field is empty
-                if let detectedRegistration = result.registration,
-                   result.confidence > 0.6,
-                   self.registration.isEmpty {
-                    self.registration = detectedRegistration
-                    self.isRegistrationFromPhoto = true
-                }
-                
-                // Auto-fill airline if detected and field is empty
-                if let detectedAirline = result.airline,
-                   result.confidence > 0.6,
-                   self.airline.isEmpty {
-                    self.airline = detectedAirline
-                    self.isAirlineFromPhoto = true
+    private func detectAircraftInfoFromImage(_ image: UIImage) async {
+        await withCheckedContinuation { continuation in
+            textDetector.detectAircraftInfo(in: image) { result in
+                Task { @MainActor in
+                    guard !Task.isCancelled else {
+                        continuation.resume()
+                        return
+                    }
+                    
+                    if let detectedRegistration = result.registration,
+                       result.confidence > 0.6,
+                       self.registration.isEmpty {
+                        self.registration = detectedRegistration
+                        self.isRegistrationFromPhoto = true
+                    }
+                    
+                    if let detectedAirline = result.airline,
+                       result.confidence > 0.6,
+                       self.airline.isEmpty {
+                        self.airline = detectedAirline
+                        self.isAirlineFromPhoto = true
+                    }
+                    
+                    continuation.resume()
                 }
             }
         }
+    }
+    
+    private func resizeImage(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+        let size = image.size
+        let aspectRatio = size.width / size.height
+        
+        var newSize: CGSize
+        if size.width > size.height {
+            newSize = CGSize(width: min(maxDimension, size.width), height: min(maxDimension, size.width) / aspectRatio)
+        } else {
+            newSize = CGSize(width: min(maxDimension, size.height) * aspectRatio, height: min(maxDimension, size.height))
+        }
+        
+        if newSize.width < size.width || newSize.height < size.height {
+            UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+            let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            return resizedImage ?? image
+        }
+        
+        return image
     }
 }
 

@@ -1,0 +1,43 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.20020,0.31763,0.57275,1.00000",
+      "display-p3:0.14954,0.23608,0.43970,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "dark",
+              "value" : {
+                "linear-gradient" : [
+                  "display-p3:0.19897,0.31372,0.56885,1.00000",
+                  "display-p3:0.14954,0.23608,0.43970,1.00000"
+                ]
+              }
+            }
+          ],
+          "image-name" : "tailglyph.png",
+          "name" : "tailglyph"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

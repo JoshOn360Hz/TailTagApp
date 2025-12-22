@@ -48,13 +48,25 @@ class AircraftTextDetector {
     
     func detectAircraftInfo(in image: UIImage, completion: @escaping (DetectionResult) -> Void) {
         guard let cgImage = image.cgImage else {
-            completion(DetectionResult(registration: nil, airline: nil, confidence: 0.0))
+            DispatchQueue.main.async {
+                completion(DetectionResult(registration: nil, airline: nil, confidence: 0.0))
+            }
             return
         }
         
         let request = VNRecognizeTextRequest { request, error in
+            if let error = error {
+                print("Vision error: \(error)")
+                DispatchQueue.main.async {
+                    completion(DetectionResult(registration: nil, airline: nil, confidence: 0.0))
+                }
+                return
+            }
+            
             guard let observations = request.results as? [VNRecognizedTextObservation] else {
-                completion(DetectionResult(registration: nil, airline: nil, confidence: 0.0))
+                DispatchQueue.main.async {
+                    completion(DetectionResult(registration: nil, airline: nil, confidence: 0.0))
+                }
                 return
             }
             
@@ -99,7 +111,9 @@ class AircraftTextDetector {
                 confidence: highestConfidence
             )
             
-            completion(result)
+            DispatchQueue.main.async {
+                completion(result)
+            }
         }
         
         request.recognitionLevel = .accurate
@@ -114,7 +128,9 @@ class AircraftTextDetector {
                 try handler.perform([request])
             } catch {
                 print("Error performing text recognition: \(error)")
-                completion(DetectionResult(registration: nil, airline: nil, confidence: 0.0))
+                DispatchQueue.main.async {
+                    completion(DetectionResult(registration: nil, airline: nil, confidence: 0.0))
+                }
             }
         }
     }

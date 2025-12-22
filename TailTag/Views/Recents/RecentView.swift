@@ -5,6 +5,7 @@ struct RecentView: View {
     @EnvironmentObject var appSettings: AppSettings
     @State private var showingAddView = false
     @State private var selectedSortOption: SortOption = .dateNewest
+    // ...existing code...
     
     var body: some View {
         NavigationView {
@@ -41,7 +42,7 @@ struct RecentView: View {
             .navigationTitle("TailTag")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Picker("Sort", selection: $selectedSortOption) {
                             ForEach(SortOption.allCases) { option in
@@ -69,4 +70,3 @@ struct RecentView: View {
         }
     }
 }
-

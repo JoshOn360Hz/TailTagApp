@@ -11,8 +11,8 @@ struct SpottingEntry: Identifiable, Hashable, Codable {
     var notes: String?
     var timestamp: Date
     
-    init(photo: Data, registration: String, airline: String, location: String, aircraftType: String? = nil, notes: String? = nil, timestamp: Date = Date()) {
-        self.id = UUID()
+    init(id: UUID = UUID(), photo: Data, registration: String, airline: String, location: String, aircraftType: String? = nil, notes: String? = nil, timestamp: Date = Date()) {
+        self.id = id
         self.photo = photo
         self.registration = registration
         self.airline = airline
