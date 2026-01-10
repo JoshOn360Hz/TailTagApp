@@ -7,8 +7,8 @@ struct AddSpottingView: View {
     @EnvironmentObject var appSettings: AppSettings
     @Environment(\.dismiss) private var dismiss
     
-    @State private var selectedPhoto: PhotosPickerItem?
-    @State private var photoData: Data?
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var photosData: [Data] = []
     @State private var registration = ""
     @State private var airline = ""
     @State private var location = ""
@@ -23,50 +23,98 @@ struct AddSpottingView: View {
     private let textDetector = AircraftTextDetector()
     
     private var canSave: Bool {
-        photoData != nil && !registration.isEmpty && !airline.isEmpty && !location.isEmpty
+        !photosData.isEmpty && !registration.isEmpty && !airline.isEmpty && !location.isEmpty
     }
     
     var body: some View {
         NavigationView {
             Form {
                 Section {
-                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                        if let photoData = photoData, let uiImage = UIImage(data: photoData) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(height: 200)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        } else {
-                            Label("Add Photo", systemImage: "camera")
+                    PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 10, matching: .images) {
+                        if photosData.isEmpty {
+                            Label("Add Photos", systemImage: "camera")
                                 .frame(height: 200)
                                 .frame(maxWidth: .infinity)
                                 .background(.regularMaterial)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                        } else {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(Array(photosData.enumerated()), id: \.offset) { index, data in
+                                        if let uiImage = UIImage(data: data) {
+                                            ZStack(alignment: .topTrailing) {
+                                                Image(uiImage: uiImage)
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                                    .frame(width: 180, height: 200)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                                
+                                                Button {
+                                                    withAnimation {
+                                                        photosData.remove(at: index)
+                                                        if index < selectedPhotos.count {
+                                                            selectedPhotos.remove(at: index)
+                                                        }
+                                                    }
+                                                } label: {
+                                                    Image(systemName: "xmark.circle.fill")
+                                                        .font(.title2)
+                                                        .foregroundStyle(.white)
+                                                        .background(Circle().fill(.black.opacity(0.6)))
+                                                }
+                                                .padding(8)
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Add more photos button
+                                    VStack {
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.system(size: 40))
+                                            .foregroundStyle(appSettings.accentColor)
+                                        Text("Add More")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .frame(width: 180, height: 200)
+                                    .background(.regularMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .frame(height: 210)
                         }
                     }
-                    .onChange(of: selectedPhoto) { _, newValue in
+                    .onChange(of: selectedPhotos) { _, newPhotos in
                         Task { @MainActor in
                             guard !isProcessingImage else { return }
                             isProcessingImage = true
                             
                             defer { isProcessingImage = false }
                             
-                            if let data = try? await newValue?.loadTransferable(type: Data.self) {
-                                // Compress image data immediately to prevent memory issues
-                                let compressedData = SpottingStore.compressImageData(data)
-                                photoData = compressedData
-                                
-                                if let photoDate = PhotoMetadataExtractor.extractDateFromPhoto(data) {
-                                    timestamp = photoDate
-                                    isDateFromPhoto = true
-                                } else {
-                                    isDateFromPhoto = false
-                                }
-                                
-                                // Use compressed data for detection to reduce memory usage
-                                if let uiImage = UIImage(data: compressedData) {
-                                    await detectAircraftInfoFromImage(uiImage)
+                            // Clear existing photos when new selection is made
+                            photosData.removeAll()
+                            
+                            for photo in newPhotos {
+                                if let data = try? await photo.loadTransferable(type: Data.self) {
+                                    // Compress image data immediately to prevent memory issues
+                                    let compressedData = SpottingStore.compressImageData(data)
+                                    photosData.append(compressedData)
+                                    
+                                    // Extract metadata from first photo only
+                                    if photosData.count == 1 {
+                                        if let photoDate = PhotoMetadataExtractor.extractDateFromPhoto(data) {
+                                            timestamp = photoDate
+                                            isDateFromPhoto = true
+                                        } else {
+                                            isDateFromPhoto = false
+                                        }
+                                        
+                                        // Use compressed data for detection to reduce memory usage
+                                        if let uiImage = UIImage(data: compressedData) {
+                                            await detectAircraftInfoFromImage(uiImage)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -164,13 +212,13 @@ struct AddSpottingView: View {
     }
     
     private func saveSpotting() {
-        guard let photoData = photoData else {
-            print("Error: Cannot save entry without photo")
+        guard !photosData.isEmpty else {
+            print("Error: Cannot save entry without photos")
             return
         }
         
         let entry = SpottingEntry(
-            photo: photoData,
+            photos: photosData,
             registration: registration.trimmingCharacters(in: .whitespacesAndNewlines),
             airline: airline.trimmingCharacters(in: .whitespacesAndNewlines),
             location: location.trimmingCharacters(in: .whitespacesAndNewlines),

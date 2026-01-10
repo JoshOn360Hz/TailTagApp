@@ -9,8 +9,8 @@ struct EditSpottingView: View {
     
     let spotting: SpottingEntry
     
-    @State private var selectedPhoto: PhotosPickerItem?
-    @State private var photoData: Data?
+    @State private var selectedPhotos: [PhotosPickerItem] = []
+    @State private var photosData: [Data]
     @State private var registration: String
     @State private var airline: String
     @State private var location: String
@@ -26,7 +26,7 @@ struct EditSpottingView: View {
     
     init(spotting: SpottingEntry) {
         self.spotting = spotting
-        _photoData = State(wrappedValue: spotting.photo)
+        _photosData = State(wrappedValue: spotting.photos)
         _registration = State(initialValue: spotting.registration)
         _airline = State(initialValue: spotting.airline)
         _location = State(initialValue: spotting.location)
@@ -38,32 +38,8 @@ struct EditSpottingView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("Photo") {
-                    HStack {
-                        if let photoData = photoData, let uiImage = UIImage(data: photoData) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 80, height: 80)
-                                .clipped()
-                                .cornerRadius(12)
-                        } else {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    Image(systemName: "camera")
-                                        .foregroundColor(.gray)
-                                )
-                        }
-                        
-                        PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                            Text("Change Photo")
-                                .foregroundColor(appSettings.accentColor)
-                        }
-                        
-                        Spacer()
-                    }
+                Section("Photos") {
+                    photoGalleryView
                 }
                 
                 Section("Aircraft Details") {
@@ -196,36 +172,35 @@ struct EditSpottingView: View {
             }
         }
         .navigationViewStyle(.stack)
-        .onChange(of: selectedPhoto) { _, newPhoto in
+        .onChange(of: selectedPhotos) { _, newPhotos in
             Task { @MainActor in
-                guard let newPhoto = newPhoto else { return }
-                do {
-                    // loadTransferable may return optional Data
-                    if let data = try await newPhoto.loadTransferable(type: Data.self) {
+                guard !newPhotos.isEmpty else { return }
+                
+                for photo in newPhotos {
+                    if let data = try? await photo.loadTransferable(type: Data.self) {
                         // Compress image before storing to prevent memory issues
                         let compressedData = SpottingStore.compressImageData(data)
-                        photoData = compressedData
-
-                        // Extract date from photo metadata
-                        if let photoDate = PhotoMetadataExtractor.extractDateFromPhoto(data) {
-                            timestamp = photoDate
-                            isDateFromPhoto = true
-                        } else {
-                            isDateFromPhoto = false
+                        photosData.append(compressedData)
+                        
+                        // Extract metadata from first added photo
+                        if photosData.count == 1 {
+                            if let photoDate = PhotoMetadataExtractor.extractDateFromPhoto(data) {
+                                timestamp = photoDate
+                                isDateFromPhoto = true
+                            } else {
+                                isDateFromPhoto = false
+                            }
+                            
+                            // Detect aircraft information from photo using compressed version
+                            if let uiImage = UIImage(data: compressedData) {
+                                detectAircraftInfoFromImage(uiImage)
+                            }
                         }
-
-                        // Detect aircraft information from photo using compressed version
-                        if let uiImage = UIImage(data: compressedData) {
-                            detectAircraftInfoFromImage(uiImage)
-                        }
-                    } else {
-                        // No transferable data loaded
-                        isDateFromPhoto = false
                     }
-                } catch {
-                    // Handle any transfer errors gracefully
-                    isDateFromPhoto = false
                 }
+                
+                // Clear selection after processing
+                selectedPhotos.removeAll()
             }
         }
         .alert("Delete Spotting", isPresented: $showingDeleteAlert) {
@@ -245,9 +220,9 @@ struct EditSpottingView: View {
     }
     
     private func saveChanges() {
-        guard let photoData = photoData else { return }
+        guard !photosData.isEmpty else { return }
         var updatedSpotting = spotting
-        updatedSpotting.photo = photoData
+        updatedSpotting.photos = photosData
         updatedSpotting.registration = registration.trimmingCharacters(in: .whitespacesAndNewlines)
         updatedSpotting.airline = airline.trimmingCharacters(in: .whitespacesAndNewlines)
         updatedSpotting.location = location.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -283,6 +258,68 @@ struct EditSpottingView: View {
                     self.isAirlineFromPhoto = true
                 }
             }
+        }
+    }
+    
+    // MARK: - Photo Gallery View
+    private var photoGalleryView: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(Array(photosData.enumerated()), id: \.offset) { index, data in
+                    photoThumbnailView(data: data, index: index)
+                }
+                
+                addMorePhotosButton
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    private func photoThumbnailView(data: Data, index: Int) -> some View {
+        Group {
+            if let uiImage = UIImage(data: data) {
+                ZStack(alignment: .topTrailing) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 120, height: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    
+                    if photosData.count > 1 {
+                        deletePhotoButton(at: index)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func deletePhotoButton(at index: Int) -> some View {
+        Button {
+            withAnimation {
+                let _ = photosData.remove(at: index)
+            }
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(.white)
+                .background(Circle().fill(.black.opacity(0.6)))
+        }
+        .padding(6)
+    }
+    
+    private var addMorePhotosButton: some View {
+        PhotosPicker(selection: $selectedPhotos, maxSelectionCount: 10, matching: .images) {
+            VStack {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(appSettings.accentColor)
+                Text("Add")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 120, height: 120)
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
 }

@@ -19,32 +19,36 @@ struct SpottingDetailView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 0) {
-                    // Full Size Photo
-                    if let uiImage = UIImage(data: entry.photo), !entry.photo.isEmpty {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxHeight: 300)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .padding(.horizontal, 20)
-                            .padding(.top, 20)
-                    } else {
-                        // Placeholder with gradient
-                        LinearGradient(
-                            colors: [appSettings.accentColor.opacity(0.3), appSettings.accentColor.opacity(0.6)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        .frame(height: 200)
-                        .overlay {
-                            Image(systemName: "airplane")
-                                .font(.system(size: 60))
-                                .foregroundStyle(.white.opacity(0.7))
+                    // Photo Gallery with TabView
+                    TabView {
+                        ForEach(Array(entry.photos.enumerated()), id: \.offset) { index, photoData in
+                            if let uiImage = UIImage(data: photoData), !photoData.isEmpty {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(maxHeight: 300)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            } else {
+                                // Placeholder with gradient
+                                LinearGradient(
+                                    colors: [appSettings.accentColor.opacity(0.3), appSettings.accentColor.opacity(0.6)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                .frame(height: 200)
+                                .overlay {
+                                    Image(systemName: "airplane")
+                                        .font(.system(size: 60))
+                                        .foregroundStyle(.white.opacity(0.7))
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
                     }
+                    .tabViewStyle(.page)
+                    .frame(height: 320)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
                     
                     // Details List
                     VStack(spacing: 0) {

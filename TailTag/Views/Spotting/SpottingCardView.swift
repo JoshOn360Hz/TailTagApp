@@ -17,8 +17,9 @@ struct SpottingCardView: View {
             showingDetail = true
         } label: {
             ZStack {
-                // Background Image
-                if let uiImage = UIImage(data: entry.photo), !entry.photo.isEmpty {
+                // Background Image (First Photo)
+                if let firstPhoto = entry.photos.first,
+                   let uiImage = UIImage(data: firstPhoto), !firstPhoto.isEmpty {
                     Image(uiImage: uiImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -43,18 +44,38 @@ struct SpottingCardView: View {
                 VStack {
                     HStack {
                         Spacer()
-                        if let aircraftType = entry.aircraftType {
-                            Text(aircraftType)
-                                .font(.headline)
-                                .fontWeight(.bold)
+                        
+                        HStack(spacing: 8) {
+                            // Photo count badge
+                            if entry.photos.count > 1 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "photo.stack.fill")
+                                        .font(.subheadline)
+                                    Text("\(entry.photos.count)")
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                }
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(.black.opacity(0.5))
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .padding(.trailing, 16)
-                                .padding(.top, 16)
+                            }
+                            
+                            // Aircraft type
+                            if let aircraftType = entry.aircraftType {
+                                Text(aircraftType)
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(.black.opacity(0.5))
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
                         }
+                        .padding(.trailing, 16)
+                        .padding(.top, 16)
                     }
                     Spacer()
                 }

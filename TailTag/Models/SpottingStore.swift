@@ -44,7 +44,8 @@ class SpottingStore: ObservableObject {
         for entry in oldEntries {
             let entity = SpottingEntryEntity(context: viewContext)
             entity.id = entry.id
-            entity.photo = SpottingStore.compressImageData(entry.photo)
+            entity.photos = entry.photos.map { SpottingStore.compressImageData($0) }
+            entity.photo = entry.photos.first.map { SpottingStore.compressImageData($0) } // Keep for backward compatibility
             entity.registration = entry.registration
             entity.airline = entry.airline
             entity.location = entry.location
@@ -106,7 +107,6 @@ class SpottingStore: ObservableObject {
             let entities = try viewContext.fetch(fetchRequest)
             entries = entities.compactMap { entity in
                 guard let id = entity.id,
-                      let photo = entity.photo,
                       let registration = entity.registration,
                       let airline = entity.airline,
                       let location = entity.location,
@@ -114,9 +114,19 @@ class SpottingStore: ObservableObject {
                     return nil
                 }
                 
+                // Try to load photos array first, fallback to single photo for backward compatibility
+                var photosList: [Data] = []
+                if let photos = entity.photos as? [Data] {
+                    photosList = photos
+                } else if let photo = entity.photo {
+                    photosList = [photo]
+                }
+                
+                guard !photosList.isEmpty else { return nil }
+                
                 return SpottingEntry(
                     id: id,
-                    photo: photo,
+                    photos: photosList,
                     registration: registration,
                     airline: airline,
                     location: location,
@@ -146,7 +156,8 @@ class SpottingStore: ObservableObject {
     func addEntry(_ entry: SpottingEntry) {
         let entity = SpottingEntryEntity(context: viewContext)
         entity.id = entry.id
-        entity.photo = SpottingStore.compressImageData(entry.photo)
+        entity.photos = entry.photos.map { SpottingStore.compressImageData($0) }
+        entity.photo = entry.photos.first.map { SpottingStore.compressImageData($0) } // Keep for backward compatibility
         entity.registration = entry.registration
         entity.airline = entry.airline
         entity.location = entry.location
@@ -208,7 +219,8 @@ class SpottingStore: ObservableObject {
         do {
             let entities = try viewContext.fetch(fetchRequest)
             if let entity = entities.first {
-                entity.photo = SpottingStore.compressImageData(updatedSpotting.photo)
+                entity.photos = updatedSpotting.photos.map { SpottingStore.compressImageData($0) }
+                entity.photo = updatedSpotting.photos.first.map { SpottingStore.compressImageData($0) } // Keep for backward compatibility
                 entity.registration = updatedSpotting.registration
                 entity.airline = updatedSpotting.airline
                 entity.location = updatedSpotting.location
