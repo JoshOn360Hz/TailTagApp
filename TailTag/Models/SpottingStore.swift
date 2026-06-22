@@ -13,9 +13,10 @@ class SpottingStore: ObservableObject {
     private let migrationKey = "HasMigratedToCoreData"
     private let oldEntriesKey = "SpottingEntries"
     
-    init(persistenceController: PersistenceController = .shared) {
-        self.persistenceController = persistenceController
-        self.viewContext = persistenceController.container.viewContext
+    init(persistenceController: PersistenceController? = nil) {
+        let controller = persistenceController ?? PersistenceController.shared
+        self.persistenceController = controller
+        self.viewContext = controller.container.viewContext
         
         // Migrate from UserDefaults on first launch
         migrateFromUserDefaultsIfNeeded()
@@ -44,7 +45,7 @@ class SpottingStore: ObservableObject {
         for entry in oldEntries {
             let entity = SpottingEntryEntity(context: viewContext)
             entity.id = entry.id
-            entity.photos = entry.photos.map { SpottingStore.compressImageData($0) }
+            entity.photos = entry.photos.map { SpottingStore.compressImageData($0) } as NSArray
             entity.photo = entry.photos.first.map { SpottingStore.compressImageData($0) } // Keep for backward compatibility
             entity.registration = entry.registration
             entity.airline = entry.airline
@@ -156,7 +157,7 @@ class SpottingStore: ObservableObject {
     func addEntry(_ entry: SpottingEntry) {
         let entity = SpottingEntryEntity(context: viewContext)
         entity.id = entry.id
-        entity.photos = entry.photos.map { SpottingStore.compressImageData($0) }
+        entity.photos = entry.photos.map { SpottingStore.compressImageData($0) } as NSArray
         entity.photo = entry.photos.first.map { SpottingStore.compressImageData($0) } // Keep for backward compatibility
         entity.registration = entry.registration
         entity.airline = entry.airline
@@ -166,6 +167,9 @@ class SpottingStore: ObservableObject {
         entity.timestamp = entry.timestamp
         
         saveContext()
+        Task {
+            await TailTagSpotlightIndexer.index(entry)
+        }
     }
     
     func deleteEntry(_ entry: SpottingEntry) {
@@ -176,6 +180,9 @@ class SpottingStore: ObservableObject {
             let entities = try viewContext.fetch(fetchRequest)
             entities.forEach { viewContext.delete($0) }
             saveContext()
+            Task {
+                await TailTagSpotlightIndexer.deleteSpotting(with: entry.id)
+            }
         } catch {
             print("Error deleting entry: \(error.localizedDescription)")
         }
@@ -189,6 +196,9 @@ class SpottingStore: ObservableObject {
             try viewContext.execute(deleteRequest)
             try viewContext.save()
             loadEntries()
+            Task {
+                await TailTagSpotlightIndexer.deleteAllSpottingEntries()
+            }
         } catch {
             print("Error clearing entries: \(error.localizedDescription)")
         }
@@ -219,7 +229,7 @@ class SpottingStore: ObservableObject {
         do {
             let entities = try viewContext.fetch(fetchRequest)
             if let entity = entities.first {
-                entity.photos = updatedSpotting.photos.map { SpottingStore.compressImageData($0) }
+                entity.photos = updatedSpotting.photos.map { SpottingStore.compressImageData($0) } as NSArray
                 entity.photo = updatedSpotting.photos.first.map { SpottingStore.compressImageData($0) } // Keep for backward compatibility
                 entity.registration = updatedSpotting.registration
                 entity.airline = updatedSpotting.airline
@@ -228,6 +238,9 @@ class SpottingStore: ObservableObject {
                 entity.notes = updatedSpotting.notes
                 entity.timestamp = updatedSpotting.timestamp
                 saveContext()
+                Task {
+                    await TailTagSpotlightIndexer.index(updatedSpotting)
+                }
             }
         } catch {
             print("Error updating entry: \(error.localizedDescription)")

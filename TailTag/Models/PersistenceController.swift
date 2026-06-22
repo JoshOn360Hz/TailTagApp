@@ -2,7 +2,7 @@ import CoreData
 import Foundation
 
 class PersistenceController {
-    nonisolated(unsafe) static let shared = PersistenceController()
+    static let shared = PersistenceController()
     
     let container: NSPersistentContainer
     

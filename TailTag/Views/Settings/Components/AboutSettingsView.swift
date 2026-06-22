@@ -15,7 +15,7 @@ struct AboutSettingsView: View {
                     .foregroundColor(.secondary)
             }
             
-            Link(destination: URL(string: "https://gettailtag.app")!) {
+            Link(destination: URL(string: "https://appsbyjosh.com/tailtag.html")!) {
                 HStack {
                     Image(systemName: "link")
                         .foregroundColor(appSettings.accentColor)

@@ -5,6 +5,7 @@
 //  Created by Josh Mansfield on 25/06/2025.
 //
 
+import AppIntents
 import SwiftUI
 
 struct SpottingDetailView: View {
@@ -167,6 +168,12 @@ struct SpottingDetailView: View {
         } message: {
             Text("This will permanently delete this spotting. This action cannot be undone.")
         }
+        .userActivity("com.Josh.TailTag.viewingSpotting", element: TailTagSpottingEntity(entry: entry)) { spottingEntity, activity in
+            activity.title = "Viewing \(entry.registration)"
+            if #available(iOS 18.2, *) {
+                activity.appEntityIdentifier = EntityIdentifier(for: spottingEntity)
+            }
+        }
     }
 }
 
@@ -201,4 +208,3 @@ struct DetailRowView: View {
         .padding(.vertical, 12)
     }
 }
-

@@ -3,8 +3,14 @@ import SwiftUI
 struct SearchView: View {
     @EnvironmentObject var spottingStore: SpottingStore
     @EnvironmentObject var appSettings: AppSettings
-    @State private var searchText = ""
+    @Binding private var searchText: String
+    private let usesLocalSearchField: Bool
     @State private var selectedSortOption: SortOption = .dateNewest
+    
+    init(searchText: Binding<String>, usesLocalSearchField: Bool = true) {
+        _searchText = searchText
+        self.usesLocalSearchField = usesLocalSearchField
+    }
     
     var filteredAndSortedEntries: [SpottingEntry] {
         spottingStore.filteredAndSortedEntries(searchText: searchText, sortOption: selectedSortOption)
@@ -28,14 +34,32 @@ struct SearchView: View {
                             .font(.title2)
                             .fontWeight(.semibold)
                         
-                        Text("No spottings match your search")
+                        Text("No spottings match \"\(searchText)\"")
                             .foregroundStyle(.secondary)
                         
                         Spacer()
                     }
+                    .padding(.horizontal, 24)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
+                            if !searchText.isEmpty {
+                                HStack {
+                                    Text("Results for \"\(searchText)\"")
+                                        .font(.headline)
+                                        .foregroundStyle(.secondary)
+                                    
+                                    Spacer()
+                                    
+                                    Text("\(filteredAndSortedEntries.count)")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 8)
+                            }
+                            
                             ForEach(searchText.isEmpty ? spottingStore.sortedEntries(by: selectedSortOption) : filteredAndSortedEntries) { entry in
                                 SpottingCardView(entry: entry)
                             }
@@ -47,7 +71,7 @@ struct SearchView: View {
             }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, prompt: "Search aircraft, airlines...")
+            .modifier(SearchableIfNeeded(isEnabled: usesLocalSearchField, searchText: $searchText))
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
@@ -67,4 +91,15 @@ struct SearchView: View {
     }
 }
 
+private struct SearchableIfNeeded: ViewModifier {
+    let isEnabled: Bool
+    @Binding var searchText: String
 
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.searchable(text: $searchText, prompt: "Search aircraft, airlines, places...")
+        } else {
+            content
+        }
+    }
+}
