@@ -1,0 +1,31 @@
+# Operating system files
+.DS_Store
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Gradle and Android build output
+**/.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.apks
+output-metadata.json
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android signing material
+*.jks
+*.keystore
+*.p12
+
+# Xcode user-specific data and build output
+**/xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# Swift package build output
+.build/
