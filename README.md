@@ -1,102 +1,112 @@
 # TailTag
 
-A modern iOS app for aircraft enthusiasts to log and track their aircraft sightings.
+TailTag is a native aircraft-spotting logbook for iOS and Android. Record aircraft sightings with photos, registration, airline, location, aircraft type, notes, and the date and time of the sighting.
 
-## Overview
-
-TailTag is a native iOS application built with SwiftUI that allows aviation enthusiasts to document their aircraft spotting experiences. Capture photos, record aircraft details, and build your personal spotting logbook with an intuitive and beautiful interface.
+All spotting data is stored locally on the device. There is currently no backend or account system.
 
 ## Features
 
-### Core Functionality
-- **Photo Capture**: Take or select photos of aircraft from your device
-- **Detailed Logging**: Record aircraft registration, airline, location, aircraft type, and personal notes
-- **Recent Activity**: View your latest aircraft sightings in chronological order
-- **Search & Filter**: Quickly find specific entries in your spotting history
-- **Persistent Storage**: All your data is securely stored locally on your device
+- Add, edit, delete, and browse aircraft sightings
+- Capture or select one or more aircraft photos
+- Search and sort your spotting history
+- Extract aircraft registration text from photos with on-device OCR
+- Store optional aircraft details, location, and notes
+- Customize accent color and light/dark appearance
+- iOS Spotlight search and App Intents integration
 
-### Customization
-- **App Icons**: Choose from multiple app icon variants to personalize your experience
-- **Accent Colors**: Customize the app's accent color to match your preferences
-- **Dark Mode Support**: Full support for light and dark appearance modes
-- **Flexible Theming**: Automatic system appearance detection with manual override options
+## Repository layout
 
-## Technology Stack
-
-- **Framework**: SwiftUI
-- **Platform**: iOS
-- **Language**: Swift
-- **Architecture**: MVVM with ObservableObject pattern
-- **Data Persistence**: Local storage with Codable models
-- **Photo Management**: PhotosUI integration
-
-## Project Structure
-
-```
-TailTag/
-├── Models/
-│   ├── SpottingEntry.swift      # Core data model for aircraft sightings
-│   ├── SpottingStore.swift      # Data management and persistence
-│   ├── AppSettings.swift        # User preferences and app configuration
-│   └── DateFormatter+Extensions.swift
-├── Views/
-│   ├── Recents/                 # Recent sightings interface
-│   ├── Search/                  # Search and filtering functionality
-│   ├── Settings/                # App configuration and customization
-│   └── Spotting/                # Add, edit, and view spotting entries
-└── Assets/                      # App icons, colors, and visual assets
+```text
+.
+├── Android/       # Android Studio / Gradle project
+├── iOS/           # Xcode project
+└── README.md
 ```
 
-## Requirements
+The two apps share the same product and user-facing concepts, but are implemented independently with each platform's native UI and storage APIs.
 
-- iOS 15.0+
-- Xcode 13.0+
-- Swift 5.5+
+## iOS
 
+### Technology
 
+- Swift and SwiftUI
+- Core Data for local spotting data and photos
+- PhotosUI for photo selection
+- App Intents and Spotlight indexing
+- Deployment target: iOS 18.0 or later
 
-## Usage
+### Requirements
 
-### Adding a New Spotting
-1. Navigate to the "Recent" tab
-2. Tap the add button to create a new entry
-3. Select or capture a photo of the aircraft
-4. Fill in the required details:
-   - Aircraft registration (tail number)
-   - Airline name
-   - Location where spotted
-5. Optionally add aircraft type and personal notes
-6. Save your entry
+- macOS
+- Xcode with support for the project's Swift and iOS SDK versions
+- An iOS 18 or later simulator, or a physical iPhone running iOS 18 or later
 
-### Viewing Your Collection
-- Browse recent sightings in the "Recent" tab
-- Use the "Search" tab to filter and find specific entries
-- Tap any entry to view detailed information
+### Open and run
 
-### Customizing the App
-- Access the "Settings" tab for personalization options
-- Choose your preferred app icon from the available variants
-- Select an accent color that suits your style
-- Toggle between light, dark, or automatic appearance modes
+1. Open `iOS/TailTag.xcodeproj` in Xcode.
+2. Select the `TailTag` target and an iOS simulator or connected device.
+3. If Xcode asks for a signing team, open the target's **Signing & Capabilities** settings and select your Apple Developer team.
+4. Press **Run**.
+
+The iOS app's bundle identifier is currently `com.Josh.TailTag`. Change it if you need to install a separate app with your own identifier.
+
+## Android
+
+### Technology
+
+- Kotlin
+- Jetpack Compose and Material 3
+- AndroidX Navigation and Lifecycle
+- Google ML Kit text recognition
+- Local storage with SharedPreferences and app-private photo files
+- Minimum Android version: API 26
+- Compile and target SDK: API 37
+
+### Requirements
+
+- Android Studio with support for the Android Gradle Plugin used by this project
+- JDK 17 or later
+- Android SDK Platform 37, or allow Android Studio/Gradle to install it
+- An Android API 26 or later emulator, or a connected Android device
+
+### Open and run
+
+1. Open the `Android/` directory in Android Studio.
+2. Let Gradle sync and install any requested SDK components.
+3. Select the `app` configuration and an emulator or connected device.
+4. Press **Run**.
+
+From a terminal, the main build and test commands are:
+
+```bash
+cd Android
+./gradlew assembleDebug
+./gradlew test
+```
+
+For instrumented tests on a running emulator or connected device:
+
+```bash
+./gradlew connectedAndroidTest
+```
+
+On Windows, use `gradlew.bat` instead of `./gradlew`.
+
+`Android/local.properties` is generated for each developer's machine and must not be committed. Build outputs, APKs, signing files, IDE metadata, and other machine-specific files are excluded by the repository `.gitignore`.
+
+## Development notes
+
+- Keep platform-specific changes inside `Android/` or `iOS/` where possible.
+- Do not commit API keys, signing certificates, keystores, provisioning profiles, or generated build output.
+- The iOS and Android apps currently store data locally and do not synchronize sightings between devices.
+- Photos and spotting records are user data; use the platform's normal backup and device-transfer mechanisms when testing migrations or resets.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+Contributions and bug reports are welcome. For larger changes, open an issue first to discuss the proposed approach, then submit a pull request with the relevant platform and test details.
 
-## Development
+## License
 
-This project follows standard iOS development practices:
-- **Architecture**: MVVM pattern with SwiftUI
-- **State Management**: `@StateObject` and `@EnvironmentObject` for data flow
-- **Data Models**: Codable structs for easy serialization
-- **UI Components**: Reusable SwiftUI views and modifiers
+No license has been declared yet. Until a license is added, all rights are reserved by the copyright holder.
 
-
-
-## Support
-
-If you encounter any issues or have questions about TailTag, please open an issue in this repository.
-
----
-
-**Happy Spotting!** 
+Happy spotting!
