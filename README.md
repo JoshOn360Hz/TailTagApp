@@ -93,20 +93,3 @@ For instrumented tests on a running emulator or connected device:
 On Windows, use `gradlew.bat` instead of `./gradlew`.
 
 `Android/local.properties` is generated for each developer's machine and must not be committed. Build outputs, APKs, signing files, IDE metadata, and other machine-specific files are excluded by the repository `.gitignore`.
-
-## Development notes
-
-- Keep platform-specific changes inside `Android/` or `iOS/` where possible.
-- Do not commit API keys, signing certificates, keystores, provisioning profiles, or generated build output.
-- The iOS and Android apps currently store data locally and do not synchronize sightings between devices.
-- Photos and spotting records are user data; use the platform's normal backup and device-transfer mechanisms when testing migrations or resets.
-
-## Contributing
-
-Contributions and bug reports are welcome. For larger changes, open an issue first to discuss the proposed approach, then submit a pull request with the relevant platform and test details.
-
-## License
-
-No license has been declared yet. Until a license is added, all rights are reserved by the copyright holder.
-
-Happy spotting!
