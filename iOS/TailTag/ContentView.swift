@@ -62,7 +62,7 @@ struct ContentView: View {
                 }
 
                 Tab("Search", systemImage: "magnifyingglass", value: TailTagTab.search, role: .search) {
-                    SearchView(searchText: $searchText, usesLocalSearchField: false)
+                    SearchView(searchText: $searchText)
                         .environmentObject(spottingStore)
                         .environmentObject(appSettings)
                 }
@@ -76,7 +76,6 @@ struct ContentView: View {
             .accentColor(appSettings.accentColor)
             .preferredColorScheme(appSettings.colorScheme)
             .tabViewStyle(.tabBarOnly)
-            .searchable(text: $searchText, prompt: "Search aircraft, airlines, places...")
             .tabViewSearchActivation(.searchTabSelection)
             )
 

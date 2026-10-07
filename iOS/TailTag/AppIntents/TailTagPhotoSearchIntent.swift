@@ -1,7 +1,7 @@
 import AppIntents
 import Combine
-import CoreData
 import Foundation
+import SwiftData
 import SwiftUI
 
 struct TailTagSearchEntity: AppEntity {
@@ -260,32 +260,22 @@ private enum TailTagIntentPhotoSearch {
         let trimmedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedSearchText.isEmpty else { return [] }
 
-        let context = PersistenceController.shared.container.viewContext
-        let fetchRequest: NSFetchRequest<SpottingEntryEntity> = SpottingEntryEntity.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \SpottingEntryEntity.timestamp, ascending: false)]
+        let descriptor = FetchDescriptor<SpottingRecord>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
 
         do {
-            let entities = try context.fetch(fetchRequest)
-            return entities.compactMap { entity in
-                guard let id = entity.id,
-                      let registration = entity.registration,
-                      let airline = entity.airline,
-                      let location = entity.location,
-                      let timestamp = entity.timestamp,
-                      matches(entity: entity, searchText: trimmedSearchText) else {
-                    return nil
-                }
-
-                let photoData = (entity.photos as? [Data])?.first ?? entity.photo ?? Data()
-
+            let records = try ModelContainer.tailTag.mainContext.fetch(descriptor)
+            return records.compactMap { record in
+                guard matches(record: record, searchText: trimmedSearchText) else { return nil }
                 return TailTagIntentPhotoResult(
-                    id: id,
-                    photoData: photoData,
-                    registration: registration,
-                    airline: airline,
-                    location: location,
-                    aircraftType: entity.aircraftType,
-                    timestamp: timestamp
+                    id: record.id,
+                    photoData: record.photos.first ?? Data(),
+                    registration: record.registration,
+                    airline: record.airline,
+                    location: record.location,
+                    aircraftType: record.aircraftType,
+                    timestamp: record.timestamp
                 )
             }
         } catch {
@@ -293,11 +283,11 @@ private enum TailTagIntentPhotoSearch {
         }
     }
 
-    private static func matches(entity: SpottingEntryEntity, searchText: String) -> Bool {
-        entity.registration?.localizedCaseInsensitiveContains(searchText) == true ||
-        entity.airline?.localizedCaseInsensitiveContains(searchText) == true ||
-        entity.location?.localizedCaseInsensitiveContains(searchText) == true ||
-        entity.aircraftType?.localizedCaseInsensitiveContains(searchText) == true
+    private static func matches(record: SpottingRecord, searchText: String) -> Bool {
+        record.registration.localizedCaseInsensitiveContains(searchText) ||
+        record.airline.localizedCaseInsensitiveContains(searchText) ||
+        record.location.localizedCaseInsensitiveContains(searchText) ||
+        record.aircraftType?.localizedCaseInsensitiveContains(searchText) == true
     }
 }
 

@@ -1,56 +1,33 @@
 import CoreData
 import Foundation
 
+// Used only for migrating data from the old CoreData store to SwiftData on first launch.
+// After migration, this class is never instantiated again.
 class PersistenceController {
     static let shared = PersistenceController()
-    
-    let container: NSPersistentContainer
-    
+    static let iCloudSyncKey = "iCloudSyncEnabled"
+
+    let container: NSPersistentContainer?
+
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "SpottingModel")
-        
+        let c = NSPersistentContainer(name: "SpottingModel")
+
         if inMemory {
-            container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
+            c.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
+        }
+
+        var loadError: Error?
+        c.loadPersistentStores { _, error in
+            loadError = error
+        }
+
+        if let error = loadError {
+            print("CoreData store unavailable (expected after SwiftData migration): \(error)")
+            container = nil
         } else {
-            // Enable external storage for binary data (photos)
-            if let description = container.persistentStoreDescriptions.first {
-                description.setOption(true as NSNumber, forKey: NSPersistentStoreFileProtectionKey)
-            }
+            c.viewContext.automaticallyMergesChangesFromParent = true
+            c.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+            container = c
         }
-        
-        container.loadPersistentStores { description, error in
-            if let error = error {
-                fatalError("Unable to load Core Data store: \(error)")
-            }
-        }
-        
-        container.viewContext.automaticallyMergesChangesFromParent = true
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
-    
-    // MARK: - Preview Support
-    static var preview: PersistenceController = {
-        let controller = PersistenceController(inMemory: true)
-        let viewContext = controller.container.viewContext
-        
-        // Create sample data for previews
-        for i in 0..<5 {
-            let entity = SpottingEntryEntity(context: viewContext)
-            entity.id = UUID()
-            entity.registration = "G-ABC\(i)"
-            entity.airline = "Sample Airlines"
-            entity.location = "EGLL"
-            entity.aircraftType = "A320"
-            entity.timestamp = Date().addingTimeInterval(-Double(i) * 86400)
-            entity.photo = Data() // Empty data for preview
-        }
-        
-        do {
-            try viewContext.save()
-        } catch {
-            print("Preview data creation failed: \(error)")
-        }
-        
-        return controller
-    }()
 }

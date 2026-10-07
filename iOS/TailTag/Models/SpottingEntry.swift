@@ -1,7 +1,7 @@
 import SwiftUI
 import Foundation
 
-struct SpottingEntry: Identifiable, Hashable, Codable {
+struct SpottingEntry: Identifiable, Hashable, Codable, Sendable {
     let id: UUID
     var photos: [Data]
     var registration: String
