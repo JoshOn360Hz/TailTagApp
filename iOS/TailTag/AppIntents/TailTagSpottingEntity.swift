@@ -1,7 +1,7 @@
 import AppIntents
-import CoreData
 import CoreSpotlight
 import Foundation
+import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -164,7 +164,6 @@ struct TailTagPhotoAssetEntityQuery: EntityQuery {
                       let spotting = TailTagSpottingEntityStore.entity(for: spottingID) else {
                     return nil
                 }
-
                 return TailTagPhotoAssetEntity(id: identifier, spotting: spotting, photoIndex: photoIndex)
             }
         }
@@ -228,12 +227,15 @@ struct AddTailTagSpottingIntent: AppIntent {
 @MainActor
 enum TailTagSpottingEntityStore {
     static func allEntries() -> [SpottingEntry] {
-        let context = PersistenceController.shared.container.viewContext
-        let fetchRequest: NSFetchRequest<SpottingEntryEntity> = SpottingEntryEntity.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \SpottingEntryEntity.timestamp, ascending: false)]
-
+        let descriptor = FetchDescriptor<SpottingRecord>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
         do {
-            return try context.fetch(fetchRequest).compactMap(entry(from:))
+            return try ModelContainer.tailTag.mainContext.fetch(descriptor).compactMap { record in
+                let photos = record.photos
+                guard !photos.isEmpty else { return nil }
+                return record.asEntry
+            }
         } catch {
             return []
         }
@@ -248,13 +250,14 @@ enum TailTagSpottingEntityStore {
     }
 
     static func entry(for id: UUID) -> SpottingEntry? {
-        let context = PersistenceController.shared.container.viewContext
-        let fetchRequest: NSFetchRequest<SpottingEntryEntity> = SpottingEntryEntity.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "id == %@", id as CVarArg)
-        fetchRequest.fetchLimit = 1
-
+        let descriptor = FetchDescriptor<SpottingRecord>(
+            predicate: #Predicate { $0.id == id }
+        )
         do {
-            return try context.fetch(fetchRequest).first.flatMap(entry(from:))
+            guard let record = try ModelContainer.tailTag.mainContext.fetch(descriptor).first else { return nil }
+            let photos = record.photos
+            guard !photos.isEmpty else { return nil }
+            return record.asEntry
         } catch {
             return nil
         }
@@ -291,41 +294,13 @@ enum TailTagSpottingEntityStore {
             for term in candidateTerms where !term.isEmpty {
                 let normalizedTerm = term.lowercased()
                 guard !seenTerms.contains(normalizedTerm) else { continue }
-
                 seenTerms.insert(normalizedTerm)
                 suggestions.append(term)
-
-                if suggestions.count == limit {
-                    return suggestions
-                }
+                if suggestions.count == limit { return suggestions }
             }
         }
 
         return suggestions
-    }
-
-    private static func entry(from entity: SpottingEntryEntity) -> SpottingEntry? {
-        guard let id = entity.id,
-              let registration = entity.registration,
-              let airline = entity.airline,
-              let location = entity.location,
-              let timestamp = entity.timestamp else {
-            return nil
-        }
-
-        let photos = (entity.photos as? [Data]) ?? entity.photo.map { [$0] } ?? []
-        guard !photos.isEmpty else { return nil }
-
-        return SpottingEntry(
-            id: id,
-            photos: photos,
-            registration: registration,
-            airline: airline,
-            location: location,
-            aircraftType: entity.aircraftType,
-            notes: entity.notes,
-            timestamp: timestamp
-        )
     }
 }
 
@@ -351,14 +326,12 @@ enum TailTagSpotlightIndexer {
         let items = entities.map { entity in
             let attributes = entity.attributeSet
             attributes.associateAppEntity(entity, priority: 10)
-
             return CSSearchableItem(
                 uniqueIdentifier: entity.id,
                 domainIdentifier: domainIdentifier,
                 attributeSet: attributes
             )
         }
-
         try await CSSearchableIndex.default().indexSearchableItems(items)
     }
 

@@ -1,4 +1,3 @@
-import AppIntents
 import SwiftUI
 
 struct RecentView: View {
@@ -6,7 +5,6 @@ struct RecentView: View {
     @EnvironmentObject var appSettings: AppSettings
     @State private var showingAddView = false
     @State private var selectedSortOption: SortOption = .dateNewest
-    @State private var showingSiriTip = true
     // ...existing code...
     
     var body: some View {
@@ -17,9 +15,6 @@ struct RecentView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            SiriTipView(intent: AddTailTagSpottingIntent(), isVisible: $showingSiriTip)
-                                .padding(.horizontal, 20)
-
                             HStack {
                                 Text("Aircraft")
                                     .font(.title2)

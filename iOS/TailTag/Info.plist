@@ -84,21 +84,25 @@
 				</array>
 			</dict>
 		</dict>
-			<key>CFBundlePrimaryIcon</key>
-			<dict>
-				<key>CFBundleIconFiles</key>
-				<array>
-					<string>icon-default</string>
-				</array>
-				<key>CFBundleIconName</key>
-				<string>AppIcon</string>
-				<key>NSAppIconActionTintColorName</key>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconFiles</key>
+			<array>
+				<string>icon-default</string>
+			</array>
+			<key>CFBundleIconName</key>
+			<string>AppIcon</string>
+			<key>NSAppIconActionTintColorName</key>
+			<string>AccentColor</string>
+			<key>NSAppIconComplementingColorNames</key>
+			<array>
 				<string>AccentColor</string>
-				<key>NSAppIconComplementingColorNames</key>
-				<array>
-					<string>AccentColor</string>
-				</array>
-			</dict>
+			</array>
 		</dict>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+</dict>
 </plist>

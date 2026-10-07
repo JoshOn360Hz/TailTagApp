@@ -4,45 +4,41 @@ import Combine
 
 class AppSettings: ObservableObject {
     @Published var accentColor: Color = .blue {
-        didSet {
-            saveAccentColor()
-        }
+        didSet { saveAccentColor() }
     }
-    
+
     @Published var colorScheme: ColorScheme? = nil {
-        didSet {
-            saveColorScheme()
-        }
+        didSet { saveColorScheme() }
     }
-    
+
     @Published var currentAppIcon: String? = nil {
-        didSet {
-            saveAppIcon()
-        }
+        didSet { saveAppIcon() }
     }
-    
+
     @Published var hasCompletedOnboarding: Bool = false {
-        didSet {
-            saveOnboardingStatus()
-        }
+        didSet { saveOnboardingStatus() }
     }
-    
+
+    @Published var iCloudSyncEnabled: Bool = false {
+        didSet { saveICloudSyncSetting() }
+    }
+
     private let userDefaults = UserDefaults.standard
     private let accentColorKey = "AccentColor"
     private let colorSchemeKey = "ColorScheme"
     private let appIconKey = "AppIcon"
     private let onboardingKey = "HasCompletedOnboarding"
-    
+
     init() {
         loadSettings()
     }
-    
+
     private func saveAccentColor() {
         if let colorOption = AccentColorOption.defaultOptions.first(where: { $0.color.description == accentColor.description }) {
             userDefaults.set(colorOption.id, forKey: accentColorKey)
         }
     }
-    
+
     private func saveColorScheme() {
         if let scheme = colorScheme {
             userDefaults.set(scheme == .dark ? "dark" : "light", forKey: colorSchemeKey)
@@ -50,21 +46,25 @@ class AppSettings: ObservableObject {
             userDefaults.set("system", forKey: colorSchemeKey)
         }
     }
-    
+
     private func saveAppIcon() {
         userDefaults.set(currentAppIcon, forKey: appIconKey)
     }
-    
+
     private func saveOnboardingStatus() {
         userDefaults.set(hasCompletedOnboarding, forKey: onboardingKey)
     }
-    
+
+    private func saveICloudSyncSetting() {
+        userDefaults.set(iCloudSyncEnabled, forKey: PersistenceController.iCloudSyncKey)
+    }
+
     private func loadSettings() {
         if let colorId = userDefaults.string(forKey: accentColorKey),
            let colorOption = AccentColorOption.defaultOptions.first(where: { $0.id == colorId }) {
             self.accentColor = colorOption.color
         }
-        
+
         let schemeString = userDefaults.string(forKey: colorSchemeKey) ?? "system"
         switch schemeString {
         case "dark":
@@ -72,12 +72,12 @@ class AppSettings: ObservableObject {
         case "light":
             self.colorScheme = .light
         default:
-            self.colorScheme = nil // system
+            self.colorScheme = nil
         }
-        
+
         self.currentAppIcon = userDefaults.string(forKey: appIconKey)
-        
         self.hasCompletedOnboarding = userDefaults.bool(forKey: onboardingKey)
+        self.iCloudSyncEnabled = userDefaults.bool(forKey: PersistenceController.iCloudSyncKey)
     }
 }
 
@@ -106,9 +106,9 @@ enum AppColorScheme: String, CaseIterable, Identifiable {
     case system = "system"
     case light = "light"
     case dark = "dark"
-    
+
     var id: String { rawValue }
-    
+
     var displayName: String {
         switch self {
         case .system: return "System"
@@ -116,7 +116,7 @@ enum AppColorScheme: String, CaseIterable, Identifiable {
         case .dark: return "Dark"
         }
     }
-    
+
     var icon: String {
         switch self {
         case .system: return "circle.lefthalf.filled"
@@ -124,7 +124,7 @@ enum AppColorScheme: String, CaseIterable, Identifiable {
         case .dark: return "moon"
         }
     }
-    
+
     var colorScheme: ColorScheme? {
         switch self {
         case .system: return nil
