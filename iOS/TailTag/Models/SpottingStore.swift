@@ -9,6 +9,9 @@ class SpottingStore: ObservableObject {
     @Published var entries: [SpottingEntry] = []
     @Published var lastCloudKitSync: Date? = nil
 
+    private var loadTask: Task<Void, Never>?
+    private var needsReload = false
+
     private var modelContext: ModelContext {
         ModelContainer.tailTag.mainContext
     }
@@ -48,18 +51,39 @@ class SpottingStore: ObservableObject {
     // MARK: - Load
 
     func loadEntries() {
-        let descriptor = FetchDescriptor<SpottingRecord>(
-            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-        )
-        do {
-            let records = try modelContext.fetch(descriptor)
-            // Include all records even if photos haven't synced yet from CloudKit —
-            // SpottingRecord and PhotoRecord are separate CKRecords and may arrive at
-            // different times. The UI shows a placeholder for entries with no photos yet.
-            entries = records.map { $0.asEntry }
-        } catch {
-            print("Error loading entries: \(error.localizedDescription)")
-            entries = []
+        needsReload = true
+        guard loadTask == nil else { return }
+
+        let container = ModelContainer.tailTag
+        loadTask = Task { [weak self] in
+            guard let self else { return }
+            defer { loadTask = nil }
+
+            while needsReload {
+                needsReload = false
+                do {
+                    let loadedEntries = try await Task.detached(priority: .userInitiated) {
+                        // Keep the context, models, and external photo reads off the main actor.
+                        // A fresh context also sees the latest saved and imported changes.
+                        let context = ModelContext(container)
+                        context.autosaveEnabled = false
+                        let descriptor = FetchDescriptor<SpottingRecord>(
+                            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+                        )
+                        let records = try context.fetch(descriptor)
+                        // Keep entries whose photos haven't arrived from CloudKit yet.
+                        return records.map { $0.asEntry }
+                    }.value
+
+                    // A save or sync during the fetch requires a fresh snapshot.
+                    if !needsReload {
+                        entries = loadedEntries
+                    }
+                } catch {
+                    // Preserve the last successful snapshot if a refresh fails.
+                    print("Error loading entries: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
