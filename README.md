@@ -10,6 +10,8 @@ All spotting data is stored locally on the device. There is currently no backend
 - Capture or select one or more aircraft photos
 - Search and sort your spotting history
 - Extract aircraft registration text from photos with on-device OCR
+- Search the bundled catalog for an operator, manufacturer, aircraft model or family, and airport, or enter custom text
+- Record aircraft role and operation type separately
 - Store optional aircraft details, location, and notes
 - Customize accent color and light/dark appearance
 - iOS Spotlight search and App Intents integration
@@ -18,12 +20,15 @@ All spotting data is stored locally on the device. There is currently no backend
 
 ```text
 .
-├── Android/       # Android Studio / Gradle project
-├── iOS/           # Xcode project
+├── Android/          # Android Studio / Gradle project
+├── data/aviation/    # Authoritative offline aviation catalog
+├── docs/             # Catalog and data-source notes
+├── iOS/              # Xcode project, AviationCatalogCore, and SmartEntryCore
+├── scripts/aviation/ # Catalog fetch, build, and validation
 └── README.md
 ```
 
-The two apps share the same product and user-facing concepts, but are implemented independently with each platform's native UI and storage APIs.
+The two apps share the same product and user-facing concepts, but are implemented independently with each platform's native UI and storage APIs. The aviation reference catalog is generated once and bundled into both apps. See `docs/aviation-catalog.md`. The spotting form that searches that catalog is described in `docs/smart-entry.md`.
 
 ## iOS
 
@@ -93,3 +98,14 @@ For instrumented tests on a running emulator or connected device:
 On Windows, use `gradlew.bat` instead of `./gradlew`.
 
 `Android/local.properties` is generated for each developer's machine and must not be committed. Build outputs, APKs, signing files, IDE metadata, and other machine-specific files are excluded by the repository `.gitignore`.
+
+## Aviation reference catalog
+
+Operators, aircraft manufacturers and models, airports, and classification terms are bundled for offline search. Application builds do not download catalog data. To rebuild from the pinned snapshots:
+
+```bash
+python3 scripts/aviation/build_catalog.py
+python3 scripts/aviation/validate_catalog.py
+```
+
+Refreshing the snapshots is a separate step and needs network access. The command and the license limits are described in `docs/aviation-data-sources.md`.

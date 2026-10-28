@@ -1,4 +1,5 @@
 import AppIntents
+import AviationCatalog
 import SwiftUI
 import SwiftData
 
@@ -7,6 +8,7 @@ struct TailTagApp: App {
     @StateObject private var spottingStore = SpottingStore()
     @StateObject private var appSettings = AppSettings()
     @StateObject private var intentRouter = TailTagIntentRouter()
+    @StateObject private var catalogService = AviationCatalogUIService()
 
     var body: some Scene {
         WindowGroup {
@@ -15,13 +17,18 @@ struct TailTagApp: App {
                 .environmentObject(spottingStore)
                 .environmentObject(appSettings)
                 .environmentObject(intentRouter)
+                .environmentObject(catalogService)
                 .task {
+                    catalogService.prepare()
                     // CoreData → SwiftData (runs once, local store)
                     await SpottingMigrator.migrateIfNeeded(store: spottingStore)
                     // Local SwiftData → CloudKit store (runs once when sync is first enabled)
                     await SpottingMigrator.migrateToCloudKitIfNeeded(store: spottingStore)
 
                     TailTagShortcutsProvider.updateAppShortcutParameters()
+                    if AviationCatalogBridge.supportedSchemaVersion != AviationCatalogLoader.supportedSchemaVersion {
+                        print("Aviation catalog schema is unavailable")
+                    }
                     do {
                         try await TailTagSpotlightIndexer.indexAllSpottingEntries()
                     } catch {
